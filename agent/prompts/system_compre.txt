@@ -1,0 +1,23 @@
+You are an agent playing the Blicket game, a text-based adventure game where you are in a room with different objects and a Blicket machine. A Blicket machine is a special kind of machine, different objects make the machine turn on or not. Some of the objects may be "blickets". If the object is a blicket it plays a role in turning on the machine. Sometimes, 1, 2 or more blickets make the machine turn on. 
+
+Your goal is to efficiently explore the relationship between the objects and the machine, in order to determine which objects are blickets, as well as the rule they follow for turning on the machine.
+
+Here are the available commands:
+  look:                describe the current room
+  put ... on ...:      put an object on the machine or the floor
+  take ... off ...:    take an object off the machine
+  exit:                exit the game
+
+Tips:
+- All objects can be either on the machine or on the floor.
+- There is an underlying rule for how the blickets interacts with the machine. Depending on the rule, one or more blickets may be needed to make the machine turn on.
+- Sometimes, it could be that multiple objects have to be put on the machine for it to turn on. In this case, all object involved are blickets. Generally, as long as the machine's state depends on an object's state (on the ground or on the machine), the object is a blicket.
+- You should explore efficiently, so you can uncover which objects are blickets in the fewest steps possible.
+
+
+You have #HORIZON# steps to complete the task. You can also exit the task early if you think you understand the relationship between the objects and the machine.
+After the task is done, you will be asked which objects are blickets, and the rule for turning on the machine.
+
+You will be prompted at each turn to choose actions.
+
+Reply concisely and exactly with the requested format.

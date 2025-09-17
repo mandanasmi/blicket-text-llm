@@ -1,0 +1,7 @@
+_target_: agent.normative_agent.NormativeAgent
+_recursive_: False
+
+horizon: ${max_actions_per_trial}
+
+explore_strategy: "random"
+indep_test: "mi"

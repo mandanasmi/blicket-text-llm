@@ -1,0 +1,30 @@
+# config.yaml
+defaults:
+  - _self_
+
+read_path_parent: "./exp_output"  # TODO: not sure if relative path correct
+read_path_wc: ["**/*/action_log_trial-*.jsonl"]  # TODO: not sure if relative path correct
+
+expl_filter: {}  # +add filters for expl data
+
+use_threadpool: False
+tp_max_workers: 4
+
+system_msg_path: "./agent/prompts/system_qa_human.txt"  # TODO change to a Q&A one
+prompt_method: "default"  
+
+model: "gpt-4o-mini-2024-07-18"
+temperature: 0.0
+
+save_trial_log: True
+
+seed: 0
+
+hydra:
+  run:
+    dir: exp_output/${now:%Y.%m.%d}/test_${now:%H%M%S} 
+  sweep:
+    dir: exp_output/${now:%Y.%m.%d}/${now:%H%M%S}  # Root directory for sweeps
+    subdir: ${hydra.job.num}  # Subdirectories for each sweep job
+  job:
+    chdir: True  # set working directory to the output directory

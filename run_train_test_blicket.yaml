@@ -1,0 +1,20 @@
+# config.yaml
+defaults: []
+
+condition: "disjunctive" #conjunctive #"baseline" #"conjunctive" #"baseline" #"disjunctive"  
+num_seeds: 1
+num_trials: 32
+#model: "DeepSeek-R1-Distill-Qwen-1.5B" #"Meta-Llama-3.1-8B-Instruct" #"Llama-3.2-3B-Instruct" #"DeepSeek-R1-Distill-Qwen-1.5B"
+model: "gpt-4o-mini-2024-07-18"
+temperature: 0.3
+save_trial_log: true
+two_training_trials: false
+
+hydra:
+  run:
+    dir: exp_output/${now:%Y.%m.%d}/test_${now:%H%M%S} 
+  sweep:
+    dir: exp_output/${now:%Y.%m.%d}/${now:%H%M%S}  # Root directory for sweeps
+    subdir: ${hydra.job.num}  # Subdirectories for each sweep job
+  job:
+    chdir: True  # set working directory to the output directory

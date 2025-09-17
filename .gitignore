@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Env / secrets
+.env
+.venv/
+.openai
+
+# Experiment outputs
+exp_output/
+processed_output/
+
+# Logs and results
+*.log
+results.json
+results.jsonl
+trial_results.jsonl
+action_log_trial-*.jsonl
+qa-log_*.jsonl
+
+# Databases
+*.duckdb
+
+

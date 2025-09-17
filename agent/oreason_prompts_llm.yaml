@@ -1,0 +1,12 @@
+_target_: agent.prompts_llm.OReasonPromptsAgent
+_recursive_: False
+
+horizon: ${max_actions_per_trial}
+filter_actions: False
+react: False
+
+model: "o3-mini-2025-01-31"  #o4-mini-2025-04-16, o3-mini-2025-01-31, o1-mini-2024-09-12
+
+reasoning_effort: "medium"  # low, medium, high
+
+system_msg_path: "./agent/prompts/system_basic.txt"

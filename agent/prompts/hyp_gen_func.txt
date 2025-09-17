@@ -1,0 +1,8 @@
+Come up with some hypothesis about how the world works. Write each one as a python function. The function should:
+- Take as input a numpy boolean vector of length #NUM_OBJECTS#, where 0 means object is on floor, and 1 means object is on machine
+- Output a boolean, where 0 means machine light is off, and 1 means machine light is on
+- First construct a boolean mask indicating which object(s) are blickets, extract just the state of these objects, then define some function over these states to produce the state of the machine.
+- Only consider hypothesis where one or all objects that are blickets needs to be put on the machine.
+- Do not consider the "sum" operation. Only consider boolean operations.
+
+Produce #NUM_HYPOTHESES# hypothesis, do not generate the same hypothesis. Be diverse in both the blicket masks and the potential functions.

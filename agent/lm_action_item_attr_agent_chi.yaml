@@ -1,0 +1,11 @@
+_target_: agent.lm_action_item_attr_agent_chi.LMActionItemAttrAgentChi
+_recursive_: false
+
+horizon: ${max_actions_per_trial}
+filter_actions: false
+react: true
+
+model: "gpt-4o-mini-2024-07-18"
+temperature: 0.3
+
+do_indep_analysis: true

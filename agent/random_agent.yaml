@@ -1,0 +1,5 @@
+_target_: agent.agents.RandomAgent
+_recursive_: False
+
+horizon: ${max_actions_per_trial}
+filter_actions: False

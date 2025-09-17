@@ -1,0 +1,29 @@
+# config.yaml
+defaults:
+  - agent: random_agent
+  - _self_
+
+num_trials: 1
+max_actions_per_trial: 8
+
+save_lm_log: True
+
+seed: 0
+
+env_kwargs:
+  num_objects: 4
+  num_blickets: 2
+  init_prob: 0.1  # initial probability any item is positive
+  transition_noise: 0.05  # probability of machine state flipping when updated
+  rule: "conjunctive"
+  # seed: ${seed}
+  
+
+hydra:
+  run:
+    dir: exp_output/${now:%Y.%m.%d}/test_${now:%H%M%S} 
+  sweep:
+    dir: exp_output/${now:%Y.%m.%d}/${now:%H%M%S}  # Root directory for sweeps
+    subdir: ${hydra.job.num}  # Subdirectories for each sweep job
+  job:
+    chdir: True  # set working directory to the output directory

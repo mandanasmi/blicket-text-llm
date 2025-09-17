@@ -1,0 +1,4 @@
+_target_: agent.oracle_agent.OracleAgent
+_recursive_: False
+
+horizon: ${max_actions_per_trial}

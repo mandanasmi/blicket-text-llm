@@ -1,0 +1,14 @@
+_target_: agent.hypo_elim_lm.HypothesisElimAgent
+_recursive_: False
+
+horizon: ${max_actions_per_trial}
+filter_actions: False
+prompt_type: "default"  # default, react, reflexion, cot
+
+model: "gpt-4o-mini-2024-07-18"  # gpt-4o-mini-2024-07-18, gpt-4o-2024-08-06, o3-mini-2025-01-31, o1-mini-2024-09-12
+temperature: 0.0
+
+system_msg_path: "./agent/prompts/system_human_conj.txt"
+
+add_elim_hypothesis: True  # add eliminated hypothesis to prompt
+hyp_space_update: "elim_add"  # 

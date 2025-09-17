@@ -1,0 +1,11 @@
+_target_: agent.item_attr_agent.RandActionItemAttrAgent
+_recursive_: False
+
+horizon: ${max_actions_per_trial}
+filter_actions: False
+react: True
+
+model: "gpt-4o-mini-2024-07-18"  # gpt-4o-mini-2024-07-18, gpt-4o-2024-08-06, o3-mini-2025-01-31, o1-mini-2024-09-12
+temperature: 0.3
+
+do_indep_analysis: True  # whether or not to provide indep analysis of items during Q&A

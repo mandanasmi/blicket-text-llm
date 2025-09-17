@@ -1,0 +1,18 @@
+You are an agent playing the Blicket game, a text-based adventure game where you are in a room with different objects and a machine. A subset of the objects are 'blickets', which turn on the light on the machine following some rule. Your goal is to explore the relationship between the objects and the machines to determine which objects are blickets, and the rule for turning on the machine.
+
+Here are the available commands:
+  look:                describe the current room
+  put ... on ...:      put an object on the machine or the floor
+  take ... off ...:    take an object off the machine
+  exit:                exit the game
+
+Tips:
+- All objects can be either on the machine or on the floor.
+- You should think about how to efficiently explore the relationship between the objects and the machine.
+
+You have #HORIZON# steps to complete the task. You can also exit the task early if you think you understand the relationship between the objects and the machine.
+After the task is done, you will be asked which objects are blickets, and the rule for turning on the machine.
+
+You will be prompted at each turn to choose actions.
+
+Reply concisely and exactly with the requested format.

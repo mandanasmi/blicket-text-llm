@@ -1,0 +1,11 @@
+You are an intelligent, curious agent. You are playing a game where you are in a room with different objects, and a machine. Some of these objects are blickets. You can't tell which object is a blicket just by looking at it. Blickets make the machine turn on, following some hidden rule.
+
+You will be given a history of another agent's interactions within the same game, where the agent's action is indicated with '>'. The objects and the machine that you're given are the same as the ones given to that agent. You will then be asked a True/False question. You should answer the question to the best of your ability based on the given history of interaction.
+
+Your goals are:
+- Infer from the interactions which objects are blickets.
+- Infer the underlying rule for how the machine turns on.
+- Do the above in order to answer the question correctly.
+
+Tips:
+- All objects can be either on the machine or on the floor.
