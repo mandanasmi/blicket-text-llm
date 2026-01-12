@@ -2,6 +2,9 @@
 
 Lightweight environment and runners to study active exploration and Q&A in a text-only “blicket” task. Agents can interact with an environment, ask/answer questions, and logs are saved for analysis.
 
+⚠️ This code base is functional but have not been thoroughly tested. Please raise any issues if you encounter them! ⚠️
+
+
 ### Installation
 ```bash
 conda create -n blicket python=3.10
