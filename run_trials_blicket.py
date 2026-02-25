@@ -112,6 +112,7 @@ def run_trial(CFG: DictConfig, CWD: str, trial_idx: int, base_seed: int):
     n_questions = 0
     n_correct = 0
     n_ans_api_errors = 0
+    blicket_answers = {}
 
     all_object_names = env.object_names
     blicket_names = [all_object_names[i] for i in env.blicket_indices]
@@ -119,6 +120,7 @@ def run_trial(CFG: DictConfig, CWD: str, trial_idx: int, base_seed: int):
     for obj_name in all_object_names:
         question_str = f"Is {obj_name} a blicket?"
         bool_answer, ans_info = agent.answer_tf(question_str, env=env)
+        blicket_answers[obj_name] = bool_answer
 
         if CFG.save_trial_log:
             log_entry = {
@@ -145,6 +147,57 @@ def run_trial(CFG: DictConfig, CWD: str, trial_idx: int, base_seed: int):
         if "api_error" in ans_info:
             n_ans_api_errors += ans_info["api_error"]
 
+    # Phase 2: Rule inference (independent prompt)
+    rule_inference_response = ""
+    rule_inference_info = {}
+    try:
+        rule_inference_response, rule_inference_info = agent.answer_rule_inference(env=env)
+        if CFG.save_trial_log:
+            log_entry = {
+                "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                "agent_class": str(agent),
+                "trial_idx": trial_idx,
+                "question": "rule_inference",
+                "answer": str(rule_inference_response),
+            }
+            for k in rule_inference_info:
+                if k == "usage" and isinstance(rule_inference_info.get(k), CompletionUsage):
+                    log_entry[k] = {k1: v for k1, v in dict(rule_inference_info[k]).items() if isinstance(v, (int, float))}
+                else:
+                    log_entry[k] = strip_np(rule_inference_info.get(k))
+            with open(os.path.join(CWD, f"action_log_trial-{trial_idx}.jsonl"), "a") as f:
+                f.write(json.dumps(log_entry) + "\n")
+        if "api_error" in rule_inference_info:
+            n_ans_api_errors += rule_inference_info["api_error"]
+    except NotImplementedError:
+        pass
+
+    # Phase 3: Rule type selection (independent prompt)
+    rule_type_response = ""
+    rule_type_info = {}
+    try:
+        rule_type_response, rule_type_info = agent.answer_rule_type(blicket_answers, rule_inference_response, env=env)
+        if CFG.save_trial_log:
+            log_entry = {
+                "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                "agent_class": str(agent),
+                "trial_idx": trial_idx,
+                "question": "rule_type",
+                "answer": str(rule_type_response),
+                "true_answer": env.rule,
+            }
+            for k in rule_type_info:
+                if k == "usage" and isinstance(rule_type_info.get(k), CompletionUsage):
+                    log_entry[k] = {k1: v for k1, v in dict(rule_type_info[k]).items() if isinstance(v, (int, float))}
+                else:
+                    log_entry[k] = strip_np(rule_type_info.get(k))
+            with open(os.path.join(CWD, f"action_log_trial-{trial_idx}.jsonl"), "a") as f:
+                f.write(json.dumps(log_entry) + "\n")
+        if "api_error" in rule_type_info:
+            n_ans_api_errors += rule_type_info["api_error"]
+    except NotImplementedError:
+        pass
+
     eLog.info(f"Trial {trial_idx} completed in {steps} steps. Questions correct: {n_correct}/{n_questions}")
 
     # Save trial data
@@ -158,6 +211,9 @@ def run_trial(CFG: DictConfig, CWD: str, trial_idx: int, base_seed: int):
         "total_reward": total_reward,
         "num_questions": n_questions,
         "num_correct": n_correct,
+        "rule_inference_response": str(rule_inference_response),
+        "rule_type_response": str(rule_type_response),
+        "true_rule": env.rule,
         "trial_duration": trial_duration,
         "num_traj_api_errors": num_api_errors,
         "num_ans_api_errors": n_ans_api_errors,
