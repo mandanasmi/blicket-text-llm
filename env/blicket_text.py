@@ -33,6 +33,8 @@ ENV_DESC = "You are in a room. You see a machine at the center of this room. "\
 "\n\nThe machine hums softly in front of you, seemingly waiting. #MACHINE_STATE# "\
 "You wonder if there is a relationship between the objects and the machine."
 
+MACHINE_STATE_UNKNOWN = "The machine's light state is unknown until you test it."
+
 
 class BlicketTextEnv:
     def __init__(self, num_objects: int, num_blickets: int, init_prob: float, 
@@ -73,6 +75,7 @@ class BlicketTextEnv:
         )
         self.look_regex = re.compile(r"look(\s+around)?$", re.IGNORECASE)
         self.exit_regex = re.compile(r"exit$", re.IGNORECASE)
+        self.test_regex = re.compile(r"test(\s+(?:the\s+)?machine)?$", re.IGNORECASE)
     
     def _update_machine_state(self):
         """Update machine state based on current object states"""
@@ -123,14 +126,19 @@ class BlicketTextEnv:
         reward = 0.0
         done = False
         update_machine = False  # only update machine state if put/take command
+        reveal_machine_state = False  # only True when test is called
 
         if self.look_regex.fullmatch(command):
             feedback = ENV_DESC.replace("#NUM_OBJECT#", str(self.num_objects))
             feedback = feedback.replace("#OBJECT_DESC#", self._get_object_description())
-            feedback = feedback.replace("#MACHINE_STATE#", self._get_machine_description()) 
+            feedback = feedback.replace("#MACHINE_STATE#", MACHINE_STATE_UNKNOWN)
         elif self.exit_regex.fullmatch(command):
             feedback = "Exiting the episode."
             done = True
+        elif self.test_regex.fullmatch(command):
+            self._update_machine_state()
+            feedback = "You test the machine. " + self._get_machine_description()
+            reveal_machine_state = True
         elif (match := self.put_regex.fullmatch(command)):
             object_name, destination = match.group(1), match.group(2)
             feedback = self._handle_put(object_name, destination)
@@ -142,16 +150,16 @@ class BlicketTextEnv:
         else:
             feedback = ("Invalid command. Valid commands are: 'put <object> on [the] machine', "
                         "'put <object> on [the] floor', 'take <object> off [of] [the] machine', "
-                        "'look', or 'exit'.")
+                        "'test' or 'test [the] machine', 'look', or 'exit'.")
         
         if update_machine:
             self._update_machine_state()
-        if not done:
-            feedback = feedback + " " + self._get_machine_description()
+        # Machine state is only revealed on test, not on put/take
 
         self._state_visits[hash(self._state.tobytes())] += 1  # unique state visits
         self._moves_count += 1
-        self._turn_machine_on = self._turn_machine_on or self._state[-1]
+        if reveal_machine_state:
+            self._turn_machine_on = self._turn_machine_on or self._state[-1]
 
         return {
             "feedback": feedback,
