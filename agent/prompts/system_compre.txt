@@ -6,9 +6,11 @@ Here are the available commands:
   look:                describe the current room
   put ... on ...:      put an object on the machine or the floor
   take ... off ...:    take an object off the machine
+  test:                test the machine to see if the light turns on
   exit:                exit the game
 
 Tips:
+- The machine's light state is only revealed when you use the 'test' command. Put and take do not show whether the light is on or off.
 - All objects can be either on the machine or on the floor.
 - There is an underlying rule for how the blickets interacts with the machine. Depending on the rule, one or more blickets may be needed to make the machine turn on.
 - Sometimes, it could be that multiple objects have to be put on the machine for it to turn on. In this case, all object involved are blickets. Generally, as long as the machine's state depends on an object's state (on the ground or on the machine), the object is a blicket.

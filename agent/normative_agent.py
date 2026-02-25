@@ -189,4 +189,10 @@ class NormativeAgent(Agent):
         }
     
         return ans, ans_info
+
+    def answer_rule_inference(self, env: Optional[object] = None):
+        return "Unknown (normative agent does not infer rule type)", {"api_error": False}
+
+    def answer_rule_type(self, blicket_answers: dict, rule_inference_response: str, env: Optional[object] = None):
+        return "unknown", {"api_error": False}
     

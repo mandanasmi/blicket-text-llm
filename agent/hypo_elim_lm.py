@@ -16,7 +16,7 @@ from scipy.stats import chi2_contingency
 from sklearn.feature_selection import mutual_info_classif
 
 
-from agent.agents import Agent
+from agent.agents import Agent, RULE_INFERENCE_QUESTION, RULE_TYPE_QUESTION
 
 # ==
 # 
@@ -430,4 +430,79 @@ class HypothesisElimAgent(Agent):
         } 
     
         return ans, ans_info
+
+    def answer_rule_inference(self, env: Optional[object] = None):
+        history_obs = self.create_history_obs()
+        prompt = "You have seen the following observations so far:\n\n"
+        prompt += history_obs
+        prompt += f"\n\n{RULE_INFERENCE_QUESTION}\n"
+        prompt += "\nProvide your description."
+
+        response_msg = None
+        response_usage = None
+        api_error = False
+        try:
+            response, cost = query_llm_api(self.model, self.system_message, prompt)
+            self.total_cost += cost
+            response_msg = response.choices[0].message.content
+            response_usage = response.usage
+        except Exception as e:
+            print(f'Error: {e}')
+            response_msg = ""
+            api_error = True
+
+        ans_info = {
+            "model": self.model,
+            "system_message": self.system_message,
+            "prompt": prompt,
+            "response_message": response_msg,
+            "history_obs": history_obs,
+            "usage": response_usage,
+            "api_error": api_error,
+        }
+        return response_msg, ans_info
+
+    def answer_rule_type(self, blicket_answers: dict, rule_inference_response: str, env: Optional[object] = None):
+        history_obs = self.create_history_obs()
+        prompt = "You have seen the following observations so far:\n\n"
+        prompt += history_obs
+        prompt += "\n\n---\n\n"
+        prompt += "Your answers about which objects are blickets:\n"
+        for obj_name, ans in blicket_answers.items():
+            prompt += f"- {obj_name}: {'Yes' if ans else 'No'}\n"
+        prompt += "\n\nYour rule inference:\n"
+        prompt += rule_inference_response
+        prompt += f"\n\n{RULE_TYPE_QUESTION}\n"
+
+        response_msg = None
+        response_usage = None
+        api_error = False
+        try:
+            response, cost = query_llm_api(self.model, self.system_message, prompt)
+            self.total_cost += cost
+            response_msg = response.choices[0].message.content
+            response_usage = response.usage
+            match = re.search(r"> (.*?)(?:\.|$)", response_msg or "")
+            answer_str = match.group(1).strip() if match else ""
+            if answer_str and "conjunctive" in answer_str.lower():
+                rule_type = "conjunctive"
+            elif answer_str and "disjunctive" in answer_str.lower():
+                rule_type = "disjunctive"
+            else:
+                rule_type = "unknown"
+        except Exception as e:
+            print(f'Error: {e}')
+            rule_type = "unknown"
+            api_error = True
+
+        ans_info = {
+            "model": self.model,
+            "system_message": self.system_message,
+            "prompt": prompt,
+            "response_message": response_msg,
+            "history_obs": history_obs,
+            "usage": response_usage,
+            "api_error": api_error,
+        }
+        return rule_type, ans_info
     

@@ -8,9 +8,11 @@ Here are the available commands:
   look:                describe the current room
   put ... on ...:      put an object on the machine or the floor
   take ... off ...:    take an object off the machine
+  test:                test the machine to see if the light turns on
   exit:                exit the game
 
 Tips:
+- The machine's light state is only revealed when you use the 'test' command. Put and take do not show whether the light is on or off.
 - All objects can be either on the machine or on the floor.
 - You should think about how to efficiently explore the relationship between the objects and the machine.
 - A blicket is defined as an object whose state is not independent of the state of the machine (in other words, the object's state distribution and the machine's state distribution have nonzero mutual information)

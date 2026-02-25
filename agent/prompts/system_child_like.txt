@@ -8,9 +8,11 @@ Here are the available commands:
   look:                describe the current room
   put ... on ...:      put an object on the machine or the floor
   take ... off ...:    take an object off the machine
+  test:                test the machine to see if the light turns on
   exit:                exit the game
 
 Tips:
+- The machine's light state is only revealed when you use the 'test' command. Put and take do not show whether the light is on or off.
 - At each step, you will be provided with observations up to the current step, including previous actions ('> action') and outcomes of the actions. 
 - All objects can be either on the machine or on the floor.
 - You should think about how to efficiently explore the relationship between the objects and the machine.

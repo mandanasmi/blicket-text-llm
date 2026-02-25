@@ -317,4 +317,22 @@ class OracleAgent(Agent):
         }
     
         return ans, ans_info
+
+    def answer_rule_inference(self, env: Optional[object] = None):
+        if len(self.state_queue) == 0:
+            return "Unknown", {"api_error": False}
+        state_traj = np.stack(self.state_queue, axis=0)
+        post_prob = compute_hypothesis_probs(self.hypothesis_space, state_traj)
+        best_guess_idx = np.argmax(post_prob)
+        _, guess_rule = self.hypothesis_space[best_guess_idx]
+        return f"The rule appears to be {guess_rule}.", {"best_guess_rule": guess_rule, "api_error": False}
+
+    def answer_rule_type(self, blicket_answers: dict, rule_inference_response: str, env: Optional[object] = None):
+        if len(self.state_queue) == 0:
+            return "unknown", {"api_error": False}
+        state_traj = np.stack(self.state_queue, axis=0)
+        post_prob = compute_hypothesis_probs(self.hypothesis_space, state_traj)
+        best_guess_idx = np.argmax(post_prob)
+        _, guess_rule = self.hypothesis_space[best_guess_idx]
+        return guess_rule, {"best_guess_rule": guess_rule, "api_error": False}
     

@@ -15,7 +15,7 @@ from scipy.stats import chi2_contingency
 from sklearn.feature_selection import mutual_info_classif
 
 
-from agent.agents import Agent
+from agent.agents import Agent, RULE_INFERENCE_QUESTION, RULE_TYPE_QUESTION
 
 # ==
 # 
@@ -32,9 +32,11 @@ Here are the available commands:
   look:                describe the current room
   put ... on ...:      put an object on the machine or the floor
   take ... off ...:    take an object off the machine
+  test:                test the machine to see if the light turns on
   exit:                exit the game
 
 Tips:
+- The machine's light state is only revealed when you use the 'test' command. Put and take do not show whether the light is on or off.
 - All objects can be either on the machine or on the floor.
 - You should think about how to efficiently explore the relationship between the objects and the machine.
 
@@ -324,6 +326,73 @@ class RandActionItemAttrAgent(Agent):
         }
     
         return ans, ans_info
+
+    def answer_rule_inference(self, env: Optional[object] = None):
+        prompt = self.create_history_obs()
+        prompt += f"\n\n{RULE_INFERENCE_QUESTION}\n"
+        prompt += "\nProvide your description."
+
+        response_msg = None
+        response_usage = None
+        api_error = False
+        try:
+            response, cost = query_llm_api(self.model, self.system_message, prompt)
+            self.total_cost += cost
+            response_msg = response.choices[0].message.content
+            response_usage = response.usage
+        except Exception as e:
+            print(f'Error: {e}')
+            response_msg = ""
+            api_error = True
+
+        ans_info = {
+            "model": self.model,
+            "system_message": self.system_message,
+            "prompt": prompt,
+            "response_message": response_msg,
+            "usage": response_usage,
+            "api_error": api_error,
+        }
+        return response_msg, ans_info
+
+    def answer_rule_type(self, blicket_answers: dict, rule_inference_response: str, env: Optional[object] = None):
+        prompt = self.create_history_obs()
+        prompt += "\n\nYour answers about which objects are blickets:\n"
+        for obj_name, ans in blicket_answers.items():
+            prompt += f"- {obj_name}: {'Yes' if ans else 'No'}\n"
+        prompt += "\n\nYour rule inference:\n"
+        prompt += rule_inference_response
+        prompt += f"\n\n{RULE_TYPE_QUESTION}\n"
+
+        response_msg = None
+        response_usage = None
+        api_error = False
+        try:
+            response, cost = query_llm_api(self.model, self.system_message, prompt)
+            self.total_cost += cost
+            response_msg = response.choices[0].message.content
+            response_usage = response.usage
+            answer_str = extract_action(response_msg)
+            if answer_str and "conjunctive" in answer_str.lower():
+                rule_type = "conjunctive"
+            elif answer_str and "disjunctive" in answer_str.lower():
+                rule_type = "disjunctive"
+            else:
+                rule_type = "unknown"
+        except Exception as e:
+            print(f'Error: {e}')
+            rule_type = "unknown"
+            api_error = True
+
+        ans_info = {
+            "model": self.model,
+            "system_message": self.system_message,
+            "prompt": prompt,
+            "response_message": response_msg,
+            "usage": response_usage,
+            "api_error": api_error,
+        }
+        return rule_type, ans_info
     
 
 
