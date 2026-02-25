@@ -102,6 +102,16 @@ def main():
             n_correct += 1
         n_questions += 1
 
+    print("\n--- Phase 2: Rule inference ---")
+    print("Describe how you think the objects turn on the machine.")
+    rule_inference_response = input("Your answer: ").strip()
+
+    print("\n--- Phase 3: Rule type selection ---")
+    print("Based on the action history and your answers, what type of rule do you think governs this?")
+    print("Conjunctive: machine turns on when ALL blickets are on it.")
+    print("Disjunctive: machine turns on when ANY blicket is on it.")
+    rule_type_response = input("Your answer (conjunctive/disjunctive): ").strip().lower()
+
     exp_data["num_questions"].append(n_questions)
     exp_data["num_correct"].append(n_correct)
 
@@ -110,6 +120,9 @@ def main():
     for key, value in exp_data.items():
         print(f"{key}: {value}")
     print(f"Blicket Indices: {env.blicket_indices}")
+    print(f"True rule: {env.rule}")
+    print(f"Your rule inference: {rule_inference_response}")
+    print(f"Your rule type: {rule_type_response}")
 
 
 if __name__ == '__main__':
