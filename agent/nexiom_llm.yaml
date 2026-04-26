@@ -1,0 +1,22 @@
+_target_: agent.nexiom_llm.NexiomLLM
+_recursive_: False
+
+horizon: ${max_actions_per_trial}
+filter_actions: False
+react: True
+
+model: "gpt-4o-2024-08-06"
+temperature: 1.0
+comprehension_horizon: ${comprehension_test_limit}
+
+# Prompt-bias A/B knobs. Defaults match legacy prompt exactly.
+# Override from CLI, e.g.:
+#   agent.prompt_variant.option_order=disj_first
+#   agent.prompt_variant.comprehension_rule=random
+#   agent.prompt_variant.comprehension_phrasing=neutral
+#   agent.prompt_variant.reasoning_cue=true
+prompt_variant:
+  option_order: "conj_first"         # "conj_first" | "disj_first"
+  comprehension_rule: "default"      # "default" | "disjunctive" | "conjunctive" | "alternate" | "random"
+  comprehension_phrasing: "at_least_one"  # "at_least_one" | "neutral"
+  reasoning_cue: false

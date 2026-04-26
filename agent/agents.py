@@ -16,11 +16,12 @@ import re
 
 PRINT_LLM_DEBUG = False
 
-OAI_CLIENT = openai.OpenAI()
+import lm_api
+OAI_CLIENT = lm_api.get_client_from_env()
 
 
-ENV_DESCRIPTION = '''You are an agent playing the Blicket game, a text-based adventure game where you are in a room with different objects and a machine. A subset of the objects are 'blickets', which turn on the light on the machine following some rule. 
-Your goal is to explore the relationship between the objects and the machines to determine which objects are blickets, and the rule for turning on the machine.
+ENV_DESCRIPTION_SHARED = '''You are an agent playing the Nexiom game, a text-based adventure game where you are in a room with different objects and a machine. A subset of the objects are 'nexioms', which turn on the light on the machine following some rule.
+Your goal is to explore the relationship between the objects and the machines to determine which objects are nexioms, and the rule for turning on the machine.
 
 Here are the available commands:
   look:                describe the current room
@@ -33,10 +34,35 @@ Tips:
 - The machine's light state is only revealed when you use the 'test' command. Put and take do not show whether the light is on or off.
 - All objects can be either on the machine or on the floor.
 - You should think about how to efficiently explore the relationship between the objects and the machine.
+- The game has two rounds: a comprehension round (to help you learn the interface) and a main experiment round with a new machine and new objects. Details about the main round will be shown after you finish the comprehension round.
+- Each round has an exploration phase and a Q&A phase. Once you enter Q&A, you can no longer explore the objects or test the machine.
+- You won't be able to start the Q&A phase until you explore and interact with the objects and the machine at least once.
 
-You have #HORIZON# steps to complete the task. You can also exit the task early if you think you understand the relationship between the objects and the machine.
-After the task is done, you will be asked which objects are blickets, and the rule for turning on the machine.
+You can also exit the task early if you think you understand the relationship between the objects and the machine.
+After each round is done, you will be asked which objects are nexioms, and the rule for turning on the machine.
 '''
+
+COMPREHENSION_INSTRUCTIONS = '''Comprehension Phase: This phase helps you learn the interface.
+
+Here are the instructions for the comprehension phase:
+
+- You will see 3 objects that may or may not be Nexioms. To test if they are Nexioms, place them on the Nexiom machine.
+- You can select one or more objects, then test the machine.
+- If the Nexiom machine switches on, it means that at least one of the objects you put on the machine is a Nexiom. It could be just one of them, some of them, or all of them.
+- A record of your tests and outcomes will be kept for you.
+- You can use up to #COMP_HORIZON# test actions (actions that reveal machine feedback) in the comprehension phase. You may take as many non-test actions as needed.
+'''
+
+MAIN_INSTRUCTIONS = '''Main Phase:
+- You will see 4 new objects and a different Nexiom machine.
+- Please note that the rules may be completely different from the comprehension round: which object(s) count as Nexioms can change entirely, and the machine may behave differently as well!
+- You must complete this one game to finish the experiment.
+- You can use up to #MAIN_HORIZON# test actions (actions that reveal machine feedback) in the main phase. You may take as many non-test actions as needed.
+'''
+
+# Legacy alias: some older agents still import ENV_DESCRIPTION expecting a
+# single-string environment description.
+ENV_DESCRIPTION = ENV_DESCRIPTION_SHARED
 
 RESPONSE_INSTRUCTION = '''Reply concisely and exactly with the requested format.'''
 
@@ -44,12 +70,34 @@ RULE_INFERENCE_QUESTION = "Describe how you think the objects turn on the machin
 
 RULE_TYPE_QUESTION = (
     "Based on the action history and your answers, what type of rule do you think governs this? "
-    "Conjunctive rule: the machine switches on when ALL of the blickets are present on the machine. "
-    "Disjunctive rule: the machine switches on when ANY of the blickets are present on the machine. "
+    "Conjunctive rule: the machine switches on when ALL of the nexioms are present on the machine. "
+    "Disjunctive rule: the machine switches on when ANY of the nexioms are present on the machine. "
 )
 
 DEFAULT_SYSTEM_MESSAGE = ENV_DESCRIPTION + '\n\n' + '''You will be prompted at each turn to choose actions.''' + \
                          '\n\n' + RESPONSE_INSTRUCTION
+
+
+MAIN_TRANSITION_TEMPLATE_SINGLE = (
+    "The true Nexiom in the practice round was Object {names}. "
+    "This is because only Object {names} can turn on the Nexiom machine.\n\n"
+)
+
+MAIN_TRANSITION_TEMPLATE_MULTI = (
+    "The true Nexioms in the practice round were Objects {names}. "
+    "This is because only those objects can turn on the Nexiom machine.\n\n"
+)
+
+
+def format_main_transition_message(nexiom_names) -> str:
+    names = list(nexiom_names)
+    if len(names) == 1:
+        return MAIN_TRANSITION_TEMPLATE_SINGLE.format(names=names[0])
+    if len(names) == 2:
+        joined = f"{names[0]} and {names[1]}"
+    else:
+        joined = ", ".join(names[:-1]) + f", and {names[-1]}"
+    return MAIN_TRANSITION_TEMPLATE_MULTI.format(names=joined)
 
 
 
@@ -107,20 +155,50 @@ def query_llm_api(model, system_message, msg, temperature=0.3):
 
 
 def extract_action(text):
-    # This pattern ensures that the "> " pattern appears at the start of the string or after a newline,
-    # and captures everything until a period (if present) or the end of the line.
-    action_pattern = r"> (.*?)(?:\.|$)"
-
-    # Search for the pattern in the text
-    match = re.search(action_pattern, text)
-
-    # If a match is found, return the matching group which contains the action
-    if match:
-        action = match.group(1).strip()  # Strip any whitespace around the action
-        return action.rstrip('.')  # Remove any trailing period
-    else:
-        # Return None or an appropriate message if no action is found
+    """Extract a valid nexiom command from model output."""
+    if not text or not isinstance(text, str):
         return None
+
+    # 1) Preferred format: "> command"
+    match = re.search(r"(?:^|\n)\s*>\s*(.+?)(?:\n|$)", text)
+    if match:
+        action = match.group(1).strip().rstrip(".")
+        if action:
+            return action
+
+    # 2) Fallback: first line that looks like a valid command.
+    cmd_pattern = re.compile(
+        r"^(look|exit|test(?:\s+the\s+machine)?|"
+        r"put\s+.+\s+on\s+(?:the\s+)?(?:machine|floor)|"
+        r"take\s+.+\s+off(?:\s+of)?(?:\s+the)?\s+machine)$",
+        re.IGNORECASE,
+    )
+    for raw_line in text.splitlines():
+        line = raw_line.strip().strip("`").strip().rstrip(".")
+        if line.startswith(">"):
+            line = line[1:].strip()
+        if cmd_pattern.match(line):
+            return line
+
+    return None
+
+
+def extract_rule_type(text):
+    """Extract conjunctive/disjunctive from free-form model text."""
+    if not text or not isinstance(text, str):
+        return "unknown"
+
+    # Prefer explicit single-token/line matches first.
+    line_match = re.search(r"^\s*>?\s*(conjunctive|disjunctive)\s*$", text, re.IGNORECASE | re.MULTILINE)
+    if line_match:
+        return line_match.group(1).lower()
+
+    # Fallback: first mention in free-form response.
+    token_match = re.search(r"\b(conjunctive|disjunctive)\b", text, re.IGNORECASE)
+    if token_match:
+        return token_match.group(1).lower()
+
+    return "unknown"
 
 
 class Agent:
@@ -201,7 +279,49 @@ class Agent:
             formatted_lines.append(current_obs)
 
         result_string = "\n".join(formatted_lines)
+        structured_history = self.create_action_outcome_history(current_obs=current_obs)
+        if structured_history:
+            result_string += "\n\n" + structured_history
         return result_string
+
+    def _is_test_action(self, action: str) -> bool:
+        if not action:
+            return False
+        return re.fullmatch(r"test(\s+(?:the\s+)?machine)?", action.strip().lower()) is not None
+
+    def _extract_machine_status(self, feedback: str):
+        if not feedback:
+            return None
+        match = re.search(r"The light on the machine is [^.]+\.", feedback)
+        if match:
+            return match.group(0)
+        return None
+
+    def create_action_outcome_history(self, current_obs: str = None):
+        """
+        Build explicit action->feedback history, including machine status after test actions.
+        """
+        if not self.acts_queue:
+            return ""
+
+        observations = list(self.obs_queue)
+        if current_obs:
+            observations.append(current_obs)
+
+        lines = ["Structured action history:"]
+        for idx, action in enumerate(self.acts_queue, start=1):
+            lines.append(f"{idx}. > {action}")
+
+            # Observation after action i is at observations[i] (if available).
+            feedback_after_action = observations[idx] if idx < len(observations) else None
+            if feedback_after_action:
+                lines.append(f"   feedback: {feedback_after_action}")
+                if self._is_test_action(action):
+                    machine_status = self._extract_machine_status(feedback_after_action)
+                    if machine_status:
+                        lines.append(f"   machine_after_test: {machine_status}")
+
+        return "\n".join(lines)
     
     def choose_new_state(self, input_archive=None):
         return next(iter(self.archive.values()))
@@ -225,10 +345,13 @@ class RandomAgent(Agent):
         obj_names = game_state['object_names']
         chosen_obj = self._rng.choice(obj_names)
 
-        if self._rng.rand() < 0.5:
+        r = self._rng.rand()
+        if r < 1 / 3:
             action = f'put {chosen_obj} on the machine'
-        else:
+        elif r < 2 / 3:
             action = f'take {chosen_obj} off the machine'
+        else:
+            action = 'test'
 
         return action, {}
         
@@ -253,9 +376,16 @@ class NaiveLLM(Agent):
         self.react = react
         self.temperature = temperature
         self.system_message = DEFAULT_SYSTEM_MESSAGE.replace('#HORIZON#', str(horizon))
+        self._client = lm_api.get_client(model)
+        self.chat_kwargs = {
+            "temperature": temperature,
+            "max_tokens": 1024,
+            "top_p": 0.2,
+            "stop": None,
+        }
 
     def select_action(self, obs, game_state):
-        prompt = "Interact with the environment to find the blickets and discover the rule.\n"
+        prompt = "Interact with the environment to find the nexioms and discover the rule.\n"
         prompt += self.create_history_obs(obs)
 
         if self.filter_actions:
@@ -270,17 +400,31 @@ class NaiveLLM(Agent):
                 "Ensure only one command is included."
 
         response_msg = None
+        reasoning_msg = None
         response_usage = None
         api_error = False
+        parse_error = False
         try:
-            response, cost = query_llm_api(self.model, self.system_message, prompt, 
-                                           temperature=self.temperature)
-            self.total_cost += cost
+            # Retry once when content is empty (observed with some local models).
+            max_empty_content_retries = 1
+            for attempt in range(max_empty_content_retries + 1):
+                response, cost = lm_api.query_llm(self._client, self.model, self.system_message,
+                                                 prompt, self.chat_kwargs)
+                self.total_cost += cost
+                response_usage = response.usage
 
-            response_msg = response.choices[0].message.content
+                msg = response.choices[0].message
+                response_msg = msg.content or ""
+                reasoning_msg = getattr(msg, "reasoning_content", None)
+                if response_msg or attempt == max_empty_content_retries:
+                    break
+
             action = extract_action(response_msg)
-
-            response_usage = response.usage
+            if action is None and reasoning_msg:
+                action = extract_action(reasoning_msg)
+            if action is None:
+                action = "look"
+                parse_error = True
 
             if PRINT_LLM_DEBUG:
                 print('-' * 5, 'prompt', '-' * 5)
@@ -302,8 +446,10 @@ class NaiveLLM(Agent):
             "system_message": self.system_message,
             "prompt": prompt,
             "response_message": response_msg,
+            "reasoning_message": reasoning_msg,
             "usage": response_usage,
             "api_error": api_error,
+            "parse_error": parse_error,
         }
 
         return action, act_info
@@ -325,7 +471,8 @@ class NaiveLLM(Agent):
         response_usage = None
         api_error = False
         try:
-            response, cost = query_llm_api(self.model, self.system_message, prompt)
+            response, cost = lm_api.query_llm(self._client, self.model, self.system_message,
+                                             prompt, self.chat_kwargs)
             self.total_cost += cost
 
             response_msg = response.choices[0].message.content
@@ -375,7 +522,8 @@ class NaiveLLM(Agent):
         response_usage = None
         api_error = False
         try:
-            response, cost = query_llm_api(self.model, self.system_message, prompt)
+            response, cost = lm_api.query_llm(self._client, self.model, self.system_message,
+                                             prompt, self.chat_kwargs)
             self.total_cost += cost
             response_msg = response.choices[0].message.content
             response_usage = response.usage
@@ -397,28 +545,24 @@ class NaiveLLM(Agent):
     def answer_rule_type(self, blicket_answers: dict, rule_inference_response: str, env: Optional[object] = None):
         history_obs = self.create_history_obs()
         prompt = history_obs
-        prompt += "\n\nYour answers about which objects are blickets:\n"
+        prompt += "\n\nYour answers about which objects are nexioms:\n"
         for obj_name, ans in blicket_answers.items():
             prompt += f"- {obj_name}: {'Yes' if ans else 'No'}\n"
         prompt += "\n\nYour rule inference:\n"
         prompt += rule_inference_response
         prompt += f"\n\n{RULE_TYPE_QUESTION}\n"
+        prompt += "Reply with exactly one word: conjunctive or disjunctive."
 
         response_msg = None
         response_usage = None
         api_error = False
         try:
-            response, cost = query_llm_api(self.model, self.system_message, prompt)
+            response, cost = lm_api.query_llm(self._client, self.model, self.system_message,
+                                             prompt, self.chat_kwargs)
             self.total_cost += cost
             response_msg = response.choices[0].message.content
             response_usage = response.usage
-            answer_str = extract_action(response_msg)
-            if answer_str and "conjunctive" in answer_str.lower():
-                rule_type = "conjunctive"
-            elif answer_str and "disjunctive" in answer_str.lower():
-                rule_type = "disjunctive"
-            else:
-                rule_type = "unknown"
+            rule_type = extract_rule_type(response_msg)
         except Exception as e:
             print(f'Error: {e}')
             rule_type = "unknown"

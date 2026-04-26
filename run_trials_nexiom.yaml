@@ -1,0 +1,40 @@
+# config.yaml
+defaults:
+  - agent: nexiom_llm
+  - _self_
+
+num_trials: 1
+max_actions_per_trial: 16
+max_wall_clock_seconds: 600
+
+comprehension_test_limit: 5
+
+save_trial_log: True
+log_action_per_step: True
+
+use_threadpool: False
+tp_max_workers: 4
+
+seed: 0
+
+comprehension_env_kwargs:
+  num_blickets: 1
+  init_prob: 0.0
+  transition_noise: 0.0
+  rule: "disjunctive"
+
+env_kwargs:
+  num_objects: 4
+  num_blickets: 2
+  init_prob: 0.0
+  transition_noise: 0.0
+  rule: "alternate"  # "conjunctive" | "disjunctive" | "alternate" (even trials conj, odd disj)
+
+hydra:
+  run:
+    dir: results/${now:%Y%m%d}_${now:%H%M%S}
+  sweep:
+    dir: exp_output/${now:%Y.%m.%d}/${now:%H%M%S}
+    subdir: ${hydra.job.num}
+  job:
+    chdir: True
